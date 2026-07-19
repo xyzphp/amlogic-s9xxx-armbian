@@ -78,7 +78,7 @@ board_release_file="etc/armbian-board-release.conf"
 ophub_release_file="etc/ophub-release"
 
 # U-BOOT files download repository
-uboot_repo="https://github.com/ophub/u-boot"
+uboot_repo="https://github.com/xyzphp/u-boot"
 # Firmware files download repository
 firmware_repo="https://github.com/ophub/firmware"
 
@@ -474,7 +474,7 @@ download_depends() {
     # Download Armbian u-boot files
     uboot_num="$(find "${uboot_path}/rockchip" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)"
     if [[ -n "${uboot_num}" && "${uboot_num}" -le "5" ]]; then
-        git_pull_dir "${uboot_repo}" main u-boot "${uboot_path}"
+        git_pull_dir "${uboot_repo}" support-rk3528-x88pro13 u-boot "${uboot_path}"
         echo -e "${INFO} u-boot download completed."
     else
         echo -e "${INFO} u-boot files exist, skip downloading."
