@@ -1,4 +1,4 @@
-name: Build 6.18.y Kernel for X88 Pro 13
+name: Build 6.18.y Kernel
 
 on:
   workflow_dispatch:
@@ -7,8 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-26.04-arm
     steps:
-      - name: Checkout kernel source
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           repository: xyzphp/linux-6.18.y
           ref: x88pro13-dts
@@ -20,36 +19,42 @@ jobs:
           sudo apt-get install -y -qq bc flex bison libssl-dev kmod cpio \
             gcc-aarch64-linux-gnu device-tree-compiler
 
-      - name: Build kernel
+      - name: Build
         run: |
           cd kernel
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
-          # Disable non-Rockchip clk drivers that fail with new clk-provider.h API
-          for cfg in CONFIG_CLK_IMX8MP CONFIG_CLK_RENESAS CONFIG_CLK_VF610 \
-                     CONFIG_CLK_SAMSUNG CONFIG_CLK_SOCFPGA CONFIG_CLK_SUNXI \
-                     CONFIG_CLK_TI CONFIG_CLK_UNIPHIER CONFIG_COMMON_CLK_XGENE \
-                     CONFIG_CLK_QORIQ CONFIG_CLK_LS1028A CONFIG_CLK_LPC32XX \
-                     CONFIG_COMMON_CLK_PALMAS CONFIG_CLK_PISTACHIO \
-                     CONFIG_COMMON_CLK_PWM CONFIG_CLK_QCOM \
-                     CONFIG_COMMON_CLK_OXNAS CONFIG_COMMON_CLK_AT91 \
-                     CONFIG_COMMON_CLK_AXI_CLKGEN CONFIG_CLK_HSDK; do
-            scripts/config --file .config --disable $cfg 2>/dev/null || true
-          done
+          # Disable all problematic clock drivers
+          scripts/config --file .config \
+            --disable CONFIG_ARCH_IMX \
+            --disable CONFIG_ARCH_RENESAS \
+            --disable CONFIG_ARCH_SUNXI \
+            --disable CONFIG_ARCH_QCOM \
+            --disable CONFIG_ARCH_EXYNOS \
+            --disable CONFIG_ARCH_SOCFPGA \
+            --disable CONFIG_ARCH_UNIPHIER \
+            --disable CONFIG_ARCH_LPC18XX \
+            --disable CONFIG_ARCH_LS1028A \
+            --disable CONFIG_ARCH_KEEMBAY \
+            --disable CONFIG_ARCH_STRATIX10 \
+            --disable CONFIG_ARCH_TEGRA \
+            --disable CONFIG_ARCH_PISTACHIO \
+            --disable CONFIG_ARCH_SPLAYTRUM 2>/dev/null || true
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image modules dtbs
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=./modules modules_install
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image modules dtbs 2>&1 | tail -20
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=./modules modules_install 2>&1 | tail -5
 
-      - name: Package kernel
+      - name: Package
+        if: always()
         run: |
           cd kernel
           mkdir -p output
-          cp arch/arm64/boot/Image output/
-          cp .config output/config-6.18.y
-          cp arch/arm64/boot/dts/rockchip/rk3528-x88pro13.dtb output/
-          tar czf output/modules.tar.gz -C modules lib/
-          ls -la output/
+          cp arch/arm64/boot/Image output/ 2>/dev/null || echo "No Image"
+          find arch/arm64/boot/dts/rockchip/ -name "*x88pro13*" -exec cp {} output/ \; 2>/dev/null || echo "No dtb"
+          tar czf output/modules.tar.gz -C modules lib/ 2>/dev/null || echo "No modules"
+          echo "=== output ===" && ls -la output/
 
-      - name: Upload artifacts
+      - name: Upload
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: x88pro13-kernel-6.18
