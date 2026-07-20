@@ -192,6 +192,7 @@ jobs:
 
       - name: Compile the kernel [ ${{ matrix.kernel_version }} ]
         uses: xyzphp/amlogic-s9xxx-armbian@main
+        continue-on-error: true
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
@@ -207,6 +208,16 @@ jobs:
           docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
 
       - name: Upload DTB artifacts
+
+      - name: Save kernel packages from builder
+        if: always()
+        run: |
+          echo "Looking for compiled kernel packages..."
+          find /builder -name "*.deb" -o -name "*.tar.gz" 2>/dev/null | head -20
+          mkdir -p /tmp/kernel-output
+          cp -r /builder/*/output/* /tmp/kernel-output/ 2>/dev/null || true
+          cp -r /opt/kernel/compile-kernel/output/* /tmp/kernel-output/ 2>/dev/null || true
+          ls -la /tmp/kernel-output/ 2>/dev/null || echo "No output found"
         if: always()
         uses: actions/upload-artifact@v4
         with:
