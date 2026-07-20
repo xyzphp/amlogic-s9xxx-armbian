@@ -24,8 +24,17 @@ jobs:
         run: |
           cd kernel
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
-          # Disable problematic i.MX driver
-          scripts/config --file .config --disable CONFIG_CLK_IMX8MP
+          # Disable non-Rockchip clk drivers that fail with new clk-provider.h API
+          for cfg in CONFIG_CLK_IMX8MP CONFIG_CLK_RENESAS CONFIG_CLK_VF610 \
+                     CONFIG_CLK_SAMSUNG CONFIG_CLK_SOCFPGA CONFIG_CLK_SUNXI \
+                     CONFIG_CLK_TI CONFIG_CLK_UNIPHIER CONFIG_COMMON_CLK_XGENE \
+                     CONFIG_CLK_QORIQ CONFIG_CLK_LS1028A CONFIG_CLK_LPC32XX \
+                     CONFIG_COMMON_CLK_PALMAS CONFIG_CLK_PISTACHIO \
+                     CONFIG_COMMON_CLK_PWM CONFIG_CLK_QCOM \
+                     CONFIG_COMMON_CLK_OXNAS CONFIG_COMMON_CLK_AT91 \
+                     CONFIG_COMMON_CLK_AXI_CLKGEN CONFIG_CLK_HSDK; do
+            scripts/config --file .config --disable $cfg 2>/dev/null || true
+          done
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image modules dtbs
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=./modules modules_install
