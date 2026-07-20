@@ -24,6 +24,9 @@ jobs:
         run: |
           cd kernel
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+          # Disable problematic i.MX driver
+          scripts/config --file .config --disable CONFIG_CLK_IMX8MP
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image modules dtbs
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=./modules modules_install
 
@@ -32,6 +35,7 @@ jobs:
           cd kernel
           mkdir -p output
           cp arch/arm64/boot/Image output/
+          cp .config output/config-6.18.y
           cp arch/arm64/boot/dts/rockchip/rk3528-x88pro13.dtb output/
           tar czf output/modules.tar.gz -C modules lib/
           ls -la output/
