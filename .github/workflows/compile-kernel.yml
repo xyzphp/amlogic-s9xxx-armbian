@@ -18,7 +18,6 @@ on:
         options:
           - unifreq
           - ophub
-          - xyzphp
       kernel_version:
         description: "Select kernel version"
         required: false
@@ -191,8 +190,7 @@ jobs:
             kernel-${{ inputs.kernel_toolchain }}-${{ matrix.kernel_version }}-
 
       - name: Compile the kernel [ ${{ matrix.kernel_version }} ]
-        uses: xyzphp/amlogic-s9xxx-armbian@main
-        continue-on-error: true
+        uses: ophub/amlogic-s9xxx-armbian@main
         if: ${{ steps.disk.outputs.status == 'success' && !cancelled() }}
         with:
           build_target: kernel
@@ -206,25 +204,6 @@ jobs:
           ccache_clear: ${{ inputs.ccache_clear }}
           docker_hostpath: /builder
           docker_image: ophub/armbian-${{ inputs.docker_image }}:arm64
-
-      - name: Upload DTB artifacts
-
-      - name: Save kernel packages from builder
-        if: always()
-        run: |
-          echo "Looking for compiled kernel packages..."
-          find /builder -name "*.deb" -o -name "*.tar.gz" 2>/dev/null | head -20
-          mkdir -p /tmp/kernel-output
-          cp -r /builder/*/output/* /tmp/kernel-output/ 2>/dev/null || true
-          cp -r /opt/kernel/compile-kernel/output/* /tmp/kernel-output/ 2>/dev/null || true
-          ls -la /tmp/kernel-output/ 2>/dev/null || echo "No output found"
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: dtb-rockchip-${{ matrix.kernel_version }}
-          path: /opt/kernel/compile-kernel/output/**/dtb-rockchip*.tar.gz
-          retention-days: 7
-          if-no-files-found: warn
 
       - name: Upload Kernel to Release
         uses: ophub/upload-to-releases@main
