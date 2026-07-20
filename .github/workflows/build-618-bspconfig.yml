@@ -1,0 +1,51 @@
+name: Build 6.18 with BSP config
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Checkout kernel source
+        uses: actions/checkout@v6
+        with:
+          repository: ophub/linux-6.18.y
+          path: kernel
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bc flex bison libssl-dev kmod cpio \
+            gcc-aarch64-linux-gnu device-tree-compiler
+
+      - name: Build with BSP config
+        run: |
+          cd kernel
+          # Use the BSP 6.1 config as base
+          cp ../config-6.1.141-bsp .config
+          # Update for 6.18 (auto-fix deprecated options)
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
+          # Build
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc) Image modules dtbs
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=./output_modules modules_install
+
+      - name: Package
+        run: |
+          cd kernel
+          mkdir -p output
+          cp arch/arm64/boot/Image output/
+          cp .config output/config-6.18-bsp
+          cp arch/arm64/boot/dts/rockchip/rk3528-x88pro13.dtb output/ 2>/dev/null || \
+            echo "No x88pro13 dtb in ophub main, need custom DTS"
+          find arch/arm64/boot/dts/rockchip/ -name "*x88pro13*" -exec cp {} output/ \;
+          tar czf output/modules.tar.gz -C output_modules lib/ 2>/dev/null || true
+          ls -la output/
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: 618-bspconfig-kernel
+          path: kernel/output/
+          retention-days: 7
