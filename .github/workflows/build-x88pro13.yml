@@ -1,0 +1,67 @@
+name: Build x88pro13
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-26.04-arm
+    steps:
+      - uses: actions/checkout@v6
+    
+      - name: Download md1000 image
+        run: |
+          wget -q --show-progress "https://github.com/ophub/amlogic-s9xxx-armbian/releases/download/Armbian_resolute_arm64_server_2026.07/Armbian_26.08.0_rockchip_md1000_resolute_6.18.38_server_2026.07.16.img.gz" -O base.img.gz
+          gunzip base.img.gz
+
+      - name: Build final image
+        run: |
+          set -ex
+          IMG=base.img
+
+          # Write x88pro13 bootloader
+          sudo dd if=bootloader.bin of=$IMG bs=512 seek=64 conv=notrunc
+
+          # Use loop device with partition scan
+          sudo losetup -D
+          LOOP=$(sudo losetup -Pf --show $IMG)
+          sleep 2
+
+          # Recreate boot partition ext4
+          sudo mkfs.ext4 -F ${LOOP}p1
+
+          # Mount and populate
+          sudo mount ${LOOP}p1 /mnt/boot
+          sudo mkdir -p /mnt/boot/dtb/rockchip
+
+          # Get kernel files from the original image's boot partition
+          sudo mkdir /mnt/img
+          sudo mount -o offset=$((32768*512)) $IMG /mnt/img
+          sudo cp /mnt/img/vmlinuz-6.18.38-ophub /mnt/boot/
+          sudo cp /mnt/img/initrd.img-6.18.38-ophub /mnt/boot/
+          sudo cp /mnt/img/uInitrd-6.18.38-ophub /mnt/boot/
+          sudo cp /mnt/img/boot.scr /mnt/boot/
+          sudo cp /mnt/img/boot.cmd /mnt/boot/
+          sudo cp -r /mnt/img/dtb/* /mnt/boot/dtb/ 2>/dev/null || true
+          sudo umount /mnt/img
+          sudo rmdir /mnt/img
+
+          # Replace with our DTB and config
+          sudo cp rk3528-x88pro13.dtb /mnt/boot/dtb/rockchip/
+          sudo cp armbianEnv-x88pro13.txt /mnt/boot/armbianEnv.txt
+
+          # Fix console
+          sudo sed -i 's/console=ttyS2/console=ttyS0/' /mnt/boot/armbianEnv.txt
+
+          sudo umount /mnt/boot
+          sudo losetup -D
+
+          # Compress
+          gzip -1 $IMG
+          ls -lh $IMG.gz
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: x88pro13-armbian-618
+          path: base.img.gz
+          retention-days: 7
